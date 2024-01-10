@@ -1,0 +1,79 @@
+@startuml JYOTISYA BACKEND
+
+
+package Reposories <<Database>> #GreenYellow/LightGoldenRodYellow{
+    class BaseRepo {
+    }
+
+    class AgentRepository extends BaseRepo {}
+    class UserRepository extends BaseRepo {}
+    class CalendarRepository extends BaseRepo {}
+    class AstroBookingRepository extends BaseRepo {}
+    class LeadStatusRepository extends BaseRepo {}
+    class KnowlarityRepository extends BaseRepo {}
+    class CustomerMappingRepository extends BaseRepo {}
+    class AgentStatusRepository extends BaseRepo {}
+}
+class Base {
+    private Logger _logger;
+    private UserRepository userRepo;
+    private AgentRepository agentRepo;
+    private CalendarRepository calendarRepo;
+    private AstroBookingRepository astrobookingRepo;
+    private LeadStatusRepository leadStatusRepo;
+    private KnowlarityRepository knowlarityRepo;
+    private CustomerMappingRepository customerMappingRepo;
+    private AgentStatusRepository agentStatusRepo;
+
+}
+
+class Agent extends Base {
+
+    void addNewAgent();
+    Agent _getRM();
+    void AssignRM();
+    void updateLeadForAgent();
+    void insertCalendar();
+    Agent[] getAstro();
+    Agent[] getActiveAstro();
+    Agent[] _getAvailableAgentsByCalendar();
+    Agent[] _getActiveAndAvailableAstroByCalendar();
+    Agent[] _getAllAvailableAstroByCalendar();
+    Agent[] _getUnblockedAndActiveAndAvailableAstroByCalendar();
+    Agent[] _getAgentNotLockedLive();
+    Agent _getAstroForUser();
+    Agent[] _getAstroForUserByAgentStatus();
+}
+
+class Booking extends Base {
+
+
+    void booking();
+    void scheduledStickyBooking();
+    void scheduledNonStickyBooking();
+    void liveNonStickyBooking();
+    void liveStickyBooking();
+}
+
+class Calendar extends Base {
+
+
+    void create();
+    void update();
+    Calendar fetch();
+    bool validateAvailability();
+}
+
+class Knowlarity extends Base {
+
+}
+
+class User extends Base{
+
+    void _forwardRequest();
+    void create();
+    void update();
+    void attemptSession();
+}
+
+@enduml

@@ -1,0 +1,35 @@
+@startuml squence diagram
+participant support_organic
+participant wati
+
+queue queue as Q
+participant user_service
+participant agent_service
+participant booking
+participant calendar
+participant rest
+participant Knowlarity_remote
+participant Knowlarity_service
+database cache
+database db
+support_organic --> wati : Redirected to wati by support
+support_organic --> rest : directly created on backed
+wati --> rest : api call to backend
+rest --> user_service  : add user to db
+rest --> user_service  : update user in db
+user_service ---> Q : pushed to queue async process
+Q --> user_service : consume to process the message
+user_service  ---> Knowlarity_service : attempt the call
+Knowlarity_service ---> agent_service : ask for available agent
+agent_service ---> cache : get unlocked astro
+agent_service ---> db : get available astro
+user_service  ---> Knowlarity_service  : ask to attempt call
+Knowlarity_service <----> Knowlarity_remote : Attepmt multiple agents 
+Knowlarity_service  ---> db : update astro status
+rest ---> agent_service: get/set feedback for call
+rest ---->agent_service: assign rm
+user_service ---> booking  : for scheduled booking
+booking  --->  agent_service : get Agent for scheduled time
+booking ---> calendar :  block the schedule
+agent_service --> calendar : get set the calendar
+@enduml

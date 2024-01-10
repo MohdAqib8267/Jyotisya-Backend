@@ -1,0 +1,9 @@
+.env
+node_modules
+dist
+.vscode
+*.log
+tmp/
+*.txt
+.idea
+*.sql

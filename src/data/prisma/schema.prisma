@@ -1,0 +1,866 @@
+// This is your Prisma schema file,
+// learn more about it in the docs_ https_//pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}  
+
+datasource db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "foreignKeys"
+}
+
+enum AGENT_ROLE {
+  ASTRO
+  RM
+  ADMIN
+  SUPER_ADMIN
+  AGENCY_ADMIN
+}
+
+enum PAYMENT_STATUS {
+  PENDING
+  EXPIRED
+  PAID
+  REFUNDED
+}
+
+enum CALL_CATEGORY {
+  FIRST_CALL
+  EXTENDED_CALL
+  REPEAT_CALL
+}
+
+enum FEEDBACK_OPTION_TYPE {
+  SKU
+  TEXT
+}
+
+enum SKU_TYPE {
+  CONSULTANCY
+  REPORT
+}
+
+enum BOOKING_STATUS {
+  DRAFT
+  AWAITING_USER_BIRTH_DETAILS
+  AWAITING_SCHEDULE_RM
+  AWAITING_SCHEDULE
+  SCHEDULED
+  AWAITING_CALL
+  CALL_ERROR
+  CALL_IN_PROGRESS
+  AWAITING_USER_FEEDBACK_ASTRO
+  AWAITING_USER_FEEDBACK_RM
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+  DEFERRED
+}
+
+enum ORDER_STATUS {
+  DRAFT
+  AWAITING_PAYMENT
+  ORDERED
+  FULFILLED
+  CANCELLED
+}
+
+enum PAYMENT_MODE {
+  COD
+  ONLINE
+}
+
+enum PAYMENT_GATEWAY {
+  TAZAPAY
+  RAZORPAY
+  PAYTM
+  PAYPAL
+  CASHFREE
+  PAYU
+  JUSPAY
+  STRIPE
+  INSTAMOJO
+}
+
+enum DAY_OF_WEEK {
+  SUN
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+}
+
+model user {
+  user_id                     Int                           @id @default(autoincrement())
+  user_uuid                   String                        @unique @default(uuid()) @db.Char(36)
+  user_name                   String                        @db.VarChar(100)
+  phone_number                String                        @unique @db.VarChar(20)
+  calling_number              String?                       @db.VarChar(20)
+  user_avatar                 String?                       @db.VarChar(191)
+  birth_details               Json?
+  created_at                  DateTime                      @default(now()) @db.Timestamp(0)
+  updated_at                  DateTime                      @default(now()) @updatedAt @db.Timestamp(0)
+  is_explorer                 Boolean?
+  is_aspirer                  Boolean?
+  is_payer                    Boolean?
+  orders                      order[]
+  payment_links               payment_link[]
+  agent_bookings              agent_booking[]
+  user_concerns               user_concerns[]
+  user_agent_mapping          user_agent_mapping[]
+  kundli                      user_kundli?
+  whatsapp_messages           whatsapp_message[]
+  whatsapp_sessions           whatsapp_session[]
+  crm_reminder                crm_reminder?
+  external_api_response_cache external_api_response_cache[]
+}
+
+model agency {
+  agency_id   Int    @id @unique @default(autoincrement())
+  agency_uuid String @unique @default(uuid()) @db.Char(36)
+  agency_name String @default("") @db.VarChar(100)
+
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  // agents                        agent[]
+  agency_default_earning_config agency_default_earning_config[]
+  agent_earning_config          agent_earning_config[]
+  agents                        agent[]
+}
+
+model agent {
+  agent_id             Int                     @id @default(autoincrement())
+  agent_uuid           String                  @unique @default(uuid()) @db.Char(36)
+  agency_id            Int?
+  phone_number         String                  @unique @db.VarChar(20)
+  company_number       String?                 @unique @db.VarChar(20)
+  agent_name           String                  @db.VarChar(100)
+  agent_avatar         String?                 @db.VarChar(191)
+  agent_email          String?                 @db.VarChar(100)
+  role                 AGENT_ROLE
+  is_active            Boolean                 @default(true)
+  selection_priority   Float                   @default(0)
+  created_at           DateTime                @default(now()) @db.Timestamp(0)
+  updated_at           DateTime                @default(now()) @updatedAt @db.Timestamp(0)
+  agent_live_status    agent_live_status?
+  agent_business_hours agent_business_hours[]
+  agent_login_history  agent_login_history[]
+  user_agent_mapping   user_agent_mapping[]
+  agent_earning_config agent_earning_config[]
+  agent_earnings       agent_earning_history[]
+  agency               agency?                 @relation(fields: [agency_id], references: [agency_id])
+}
+
+model agent_credential {
+  credential_id Int      @id @default(autoincrement())
+  agent_id      Int      @unique
+  password      String   @db.VarChar(191)
+  created_at    DateTime @default(now()) @db.Timestamp(0)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamp(0)
+}
+
+model agent_live_status {
+  status_id         Int     @id @default(autoincrement())
+  agent_id          Int     @unique
+  is_online         Boolean @default(false)
+  is_on_call        Boolean @default(false)
+  is_calendar_free  Boolean @default(false)
+  has_pending_leads Boolean @default(false)
+
+  busy_until      DateTime? @db.Timestamp(0)
+  next_booking_at DateTime? @db.Timestamp(0)
+
+  last_success_at DateTime? @db.Timestamp(0)
+  last_failure_at DateTime? @db.Timestamp(0)
+
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  agent agent @relation(fields: [agent_id], references: [agent_id])
+}
+
+model agent_login_history {
+  login_id    Int       @id @default(autoincrement())
+  agent_id    Int
+  login_time  DateTime  @default(now()) @db.Timestamp(0)
+  logout_time DateTime? @db.Timestamp(0)
+  created_at  DateTime  @default(now()) @db.Timestamp(0)
+  updated_at  DateTime  @default(now()) @updatedAt @db.Timestamp(0)
+
+  agent agent @relation(fields: [agent_id], references: [agent_id])
+}
+
+model user_agent_mapping {
+  mapping_id Int        @id @default(autoincrement())
+  user_id    Int
+  agent_id   Int
+  agent_role AGENT_ROLE
+  is_active  Boolean    @default(true)
+  created_at DateTime   @default(now()) @db.Timestamp(0)
+  updated_at DateTime   @default(now()) @updatedAt @db.Timestamp(0)
+  user       user       @relation(fields: [user_id], references: [user_id])
+  agent      agent      @relation(fields: [agent_id], references: [agent_id])
+
+  @@unique(fields: [user_id, agent_role], name: "sticky_agent_mapping_key")
+}
+
+model order {
+  order_id            Int     @id @default(autoincrement())
+  order_uuid          String  @unique @default(uuid()) @db.Char(36)
+  user_id             Int
+  line_item_count     Int     @default(1)
+  tax_amount_inr      Decimal @db.Decimal(8, 2)
+  total_amount_inr    Decimal @db.Decimal(8, 2)
+  parent_order_id     Int     @default(0)
+  created_by_agent_id Int     @default(0)
+
+  payment_type   PAYMENT_MODE
+  payment_status PAYMENT_STATUS
+  order_status   ORDER_STATUS
+
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  order_line_items        order_line_item[]
+  user                    user                      @relation(fields: [user_id], references: [user_id])
+  payment_links           payment_link[]
+  agent_bookings          agent_booking[]
+  agent_booking_extension agent_booking_extension[]
+}
+
+model order_line_item {
+  order_line_item_id         Int      @id @default(autoincrement())
+  order_line_item_uuid       String   @unique @default(uuid()) @db.Char(36)
+  order_id                   Int
+  sku_id                     Int
+  sku_price_inr              Decimal  @db.Decimal(8, 2)
+  line_item_quantity         Int      @default(1)
+  line_item_tax_amount_inr   Int      @default(0)
+  line_item_total_amount_inr Decimal  @db.Decimal(8, 2)
+  line_item_commission_inr   Decimal  @db.Decimal(8, 2)
+  created_at                 DateTime @default(now()) @db.Timestamp(0)
+  updated_at                 DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  order order @relation(fields: [order_id], references: [order_id])
+}
+
+model payment_link {
+  payment_link_id    Int             @id @default(autoincrement())
+  payment_link_uuid  String          @unique @default(uuid()) @db.Char(36)
+  user_id            Int
+  order_id           Int             @default(0)
+  payment_amount_inr Decimal         @db.Decimal(8, 2)
+  payment_gateway    PAYMENT_GATEWAY
+  link_id_3p         String          @db.VarChar(191)
+  link_qr_id_3p      String?         @db.VarChar(191)
+  link_url           String          @db.VarChar(191)
+  link_qr_url_3p     String          @db.VarChar(191)
+  link_qr_url_custom String          @db.VarChar(191)
+  expiry             DateTime        @db.Timestamp(0)
+  notes              Json
+  payment_status     PAYMENT_STATUS
+  created_at         DateTime        @default(now()) @db.Timestamp(0)
+  updated_at         DateTime        @default(now()) @updatedAt @db.Timestamp(0)
+  user               user            @relation(fields: [user_id], references: [user_id])
+  order              order           @relation(fields: [order_id], references: [order_id])
+
+  @@unique(fields: [payment_gateway, link_id_3p], name: "link_id_3p_unique")
+  @@unique(fields: [payment_gateway, link_qr_id_3p], name: "link_qr_id_3p_unique")
+}
+
+model agent_business_hours {
+  id              Int      @id @default(autoincrement())
+  agent_id        Int
+  day_no          Int      @db.TinyInt()
+  slot_start_time DateTime @db.Time()
+  slot_end_time   DateTime @db.Time()
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now()) @db.Timestamp(0)
+  updated_at      DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  agent agent @relation(fields: [agent_id], references: [agent_id])
+}
+
+enum BOOKING_TYPE {
+  BOOK_NOW
+  BOOK_LATER
+  EXTEND_CALL
+}
+
+enum CONVERSATION_TYPE {
+  CALL
+  CHAT
+  VIDEO
+}
+
+enum CALENDAR_STATUS {
+  BUSY
+  ABSENT
+}
+
+enum MESSAGE_DIRECTION {
+  INCOMING
+  OUTGOING
+}
+
+model agent_booking {
+  booking_id   Int      @id @default(autoincrement())
+  booking_uuid String   @unique @default(uuid()) @db.Char(36)
+  created_at   DateTime @default(now()) @db.Timestamp(0)
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  order_id            Int     @default(0)
+  sku_id              Int     @default(0)
+  payment_link_id     Int     @default(0)
+  user_id             Int     @default(0)
+  astro_id            Int     @default(0)
+  rm_id               Int     @default(0)
+  parent_booking_id   Int     @default(0)
+  created_by_agent_id Int     @default(0)
+  is_new_user         Boolean
+  is_sticky_agent     Boolean
+  is_extended         Boolean @default(false)
+
+  pending_action_by      AGENT_ROLE?
+  show_on_astro_calendar Boolean     @default(true)
+  show_on_rm_calendar    Boolean     @default(true)
+
+  booking_type      BOOKING_TYPE
+  conversation_type CONVERSATION_TYPE
+  calendar_status   CALENDAR_STATUS
+
+  booking_start_time    DateTime?      @db.Timestamp(0)
+  booking_end_time      DateTime?      @db.Timestamp(0)
+  booking_duration_mins Int            @default(0)
+  booking_status        BOOKING_STATUS
+  booking_retry_count   Int            @default(0)
+
+  booking_picked_up_at         DateTime? @db.Timestamp(0)
+  first_agent_call_ringed_at   DateTime? @db.Timestamp(0)
+  first_agent_call_answered_at DateTime? @db.Timestamp(0)
+  first_user_call_ringed_at    DateTime? @db.Timestamp(0)
+  first_user_call_answered_at  DateTime? @db.Timestamp(0)
+  first_user_call_hangup_at    DateTime? @db.Timestamp(0)
+  booking_completed_at         DateTime? @db.Timestamp(0)
+
+  lead_stage_id      Int     @default(0)
+  is_pushed_to_queue Boolean @default(false)
+  is_active          Boolean @default(true)
+
+  booking_notes            Json?
+  agent_booking_extensions agent_booking_extension[]
+  user                     user                      @relation(fields: [user_id], references: [user_id])
+  order                    order                     @relation(fields: [order_id], references: [order_id])
+  agent_booking_feedbacks  agent_booking_feedback[]
+  phone_calls              phone_call[]
+  feedback_responses       feedback_response[]
+  user_concerns            user_concerns[]
+  sku                      sku                       @relation(fields: [sku_id], references: [sku_id])
+  agent_earning_history    agent_earning_history?
+
+  @@index([astro_id, show_on_astro_calendar])
+  @@index([rm_id, show_on_rm_calendar])
+}
+
+enum EXTENSION_STATUS {
+  AWAITING_PAYMENT
+  COMPLETED
+  CANCELLED
+}
+
+model agent_booking_extension {
+  extension_id         Int    @id @default(autoincrement())
+  extension_uuid       String @unique @default(uuid()) @db.Char(36)
+  parent_order_id      Int
+  parent_booking_id    Int
+  call_id              Int
+  extended_by_agent_id Int
+  extension_sku_id     Int
+  child_order_id       Int
+  child_booking_id     Int?
+
+  extension_status EXTENSION_STATUS @default(AWAITING_PAYMENT)
+  extended_at      DateTime?        @db.Timestamp(0)
+
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  parent_booking agent_booking @relation(fields: [parent_booking_id], references: [booking_id])
+  child_order    order         @relation(fields: [child_order_id], references: [order_id])
+  extension_sku  sku           @relation(fields: [extension_sku_id], references: [sku_id])
+}
+
+model agent_booking_tat {
+  booking_id Int @id @default(autoincrement())
+
+  paid_at                      DateTime? @db.Timestamp(0)
+  first_scheduled_at           DateTime? @db.Timestamp(0)
+  last_scheduled_at            DateTime? @db.Timestamp(0)
+  first_scheduled_for          DateTime? @db.Timestamp(0)
+  last_scheduled_for           DateTime? @db.Timestamp(0)
+  first_call_attempted_at      DateTime? @db.Timestamp(0)
+  last_call_attempted_at       DateTime? @db.Timestamp(0)
+  first_agent_call_ringed_at   DateTime? @db.Timestamp(0)
+  first_agent_call_answered_at DateTime? @db.Timestamp(0)
+  first_user_call_ringed_at    DateTime? @db.Timestamp(0)
+  first_user_call_answered_at  DateTime? @db.Timestamp(0)
+  first_user_call_hangup_at    DateTime? @db.Timestamp(0)
+
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamp(0)
+}
+
+model agent_booking_feedback {
+  feedback_id      Int        @id @default(autoincrement())
+  booking_id       Int
+  agent_id         Int
+  agent_role       AGENT_ROLE
+  user_concerns    Json?
+  selected_options Json?
+  agent_notes      String?    @db.VarChar(191)
+  service_rating   Int        @default(0)
+  created_at       DateTime   @default(now()) @db.Timestamp(0)
+  updated_at       DateTime   @default(now()) @updatedAt @db.Timestamp(0)
+
+  booking agent_booking @relation(fields: [booking_id], references: [booking_id])
+}
+
+// model agent_booking_feedback_user {
+//   feedback_id    Int      @id @default(autoincrement())
+//   booking_id     Int
+//   user_id        Int
+//   agent_id       Int
+//   user_notes     String   @db.VarChar(191)
+//   service_rating Int
+//   created_at     DateTime @default(now()) @db.Timestamp(0)
+//   updated_at     DateTime @default(now()) @updatedAt @db.Timestamp(0)
+// }
+
+model user_concerns {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  concern_id Int
+  booking_id Int
+  agent_id   Int
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  user    user              @relation(fields: [user_id], references: [user_id])
+  concern user_concern_list @relation(fields: [concern_id], references: [concern_id])
+  booking agent_booking     @relation(fields: [booking_id], references: [booking_id])
+}
+
+model user_concern_category {
+  category_id   Int      @id @default(autoincrement())
+  category_name String   @db.VarChar(100)
+  created_at    DateTime @default(now()) @db.Timestamp(0)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  user_concern_list user_concern_list[]
+}
+
+model user_concern_list {
+  concern_id   Int      @id @default(autoincrement())
+  category_id  Int
+  concern_name String   @db.VarChar(100)
+  is_active    Boolean  @default(true)
+  created_at   DateTime @default(now()) @db.Timestamp(0)
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  user_concern_category user_concern_category @relation(fields: [category_id], references: [category_id])
+  user_concerns         user_concerns[]
+}
+
+model lead_status {
+  lead_id       Int         @id @unique @default(autoincrement())
+  user_id       Int         @default(0)
+  agent_id      Int         @default(0)
+  status_id     Int         @default(value: 0)
+  lead_type     AGENT_ROLE?
+  rating        Int?
+  astro_lead_id Int?
+  created_at    DateTime    @default(now()) @db.Timestamp(0)
+  updated_at    DateTime    @default(now()) @updatedAt @db.Timestamp(0)
+
+  status_text lead_status_text @relation(fields: [status_id], references: [status_id])
+  // user          user        @relation(fields: [user_id], references: [user_id], name: "record_user")
+  // agent         agent       @relation(fields: [agent_id], references: [agent_id], name: "record_agent")
+}
+
+model lead_status_text {
+  status_id   Int      @id @default(autoincrement())
+  status_name String   @db.VarChar(191)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  lead_status lead_status[]
+}
+
+model feedback_options {
+  id               Int           @id @default(autoincrement())
+  call_sku_id      Int           @default(0)
+  call_category    CALL_CATEGORY
+  agent_role       AGENT_ROLE
+  feedback_text_id Int           @default(0)
+  parent_id        Int           @default(0)
+  created_at       DateTime      @default(now()) @db.Timestamp(0)
+  updated_at       DateTime      @default(now()) @updatedAt @db.Timestamp(0)
+}
+
+model feedback_text {
+  id         Int                  @id @default(autoincrement())
+  type       FEEDBACK_OPTION_TYPE @default(TEXT)
+  title      String               @db.VarChar(36)
+  sku_id     Int
+  created_at DateTime             @default(now()) @db.Timestamp(0)
+  updated_at DateTime             @default(now()) @updatedAt @db.Timestamp(0)
+}
+
+model sku_category {
+  id            Int      @id @default(autoincrement())
+  category_id   Int      @unique @default(0)
+  category_name String   @default("") @db.VarChar(100)
+  created_at    DateTime @default(now()) @db.Timestamp(0)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  sku_list                      sku[]
+  agency_default_earning_config agency_default_earning_config[]
+  agent_earning_config          agent_earning_config[]
+}
+
+model sku {
+  sku_id                  Int      @id @default(autoincrement())
+  sku_uuid                String   @unique @default(uuid()) @db.Char(36)
+  sku_rank                Int      @default(0)
+  sku_type                SKU_TYPE
+  category_id             Int
+  sku_name                String   @db.VarChar(100)
+  sku_description         String   @default("") @db.Text()
+  sku_mrp_inr             Int      @default(0)
+  sku_price_inr           Int      @default(0)
+  sku_commission_inr      Int      @default(0)
+  sku_version_id          Int      @default(0)
+  is_active               Boolean  @default(false)
+  is_allowed_as_extension Boolean  @default(false)
+  sku_duration_mins       Int      @default(0)
+  created_at              DateTime @default(now()) @db.Timestamp(0)
+  updated_at              DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  sku_category            sku_category              @relation(fields: [category_id], references: [category_id])
+  agent_booking_extension agent_booking_extension[]
+  agent_booking           agent_booking[]
+  agent_earnings          agent_earning_history[]
+}
+
+model feedback_response {
+  id               Int      @id @default(autoincrement())
+  agent_id         Int
+  booking_id       Int
+  parent_option_id Int
+  child_option_id  Int?
+  created_at       DateTime @default(now()) @db.Timestamp(0)
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  booking agent_booking @relation(fields: [booking_id], references: [booking_id])
+}
+
+model phone_call {
+  call_id                     Int          @id @unique @default(autoincrement())
+  call_uuid                   String       @unique @default(uuid()) @db.Char(36)
+  batch_uuid                  String       @db.Char(36)
+  call_retry_count            Int          @default(0)
+  telephony_provider_id       Int          @default(0)
+  telephony_provider_call_id  String?      @db.VarChar(36)
+  booking_id                  Int
+  booking_retry_count         Int
+  agent_id                    Int
+  user_id                     Int
+  initiated_by                CALLER_ROLE
+  agent_phone_number          String       @db.VarChar(20)
+  user_phone_number           String       @db.VarChar(20)
+  call_type                   CALL_TYPE
+  initiated_at                DateTime?    @db.Timestamp(0)
+  agent_called_at             DateTime?    @db.Timestamp(0)
+  agent_answered_at           DateTime?    @db.Timestamp(0)
+  user_called_at              DateTime?    @db.Timestamp(0)
+  user_answered_at            DateTime?    @db.Timestamp(0)
+  hangup_at                   DateTime?    @db.Timestamp(0)
+  hangup_cause                String?      @db.VarChar(50)
+  hangup_by                   CALLER_ROLE?
+  call_duration_actual        Int          @default(0)
+  call_duration_ideal         Int          @default(0)
+  call_recording_url          String?
+  is_error                    Boolean      @default(false)
+  is_ongoing                  Boolean      @default(true)
+  is_fulfilled                Boolean      @default(false)
+  telephony_provider_response Json?
+
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  booking agent_booking @relation(fields: [booking_id], references: [booking_id])
+
+  @@unique(fields: [telephony_provider_id, telephony_provider_call_id], name: "call_id_3p_unique")
+}
+
+model agency_default_earning_config {
+  id                         Int      @id @unique @default(autoincrement())
+  agency_id                  Int
+  category_id                Int
+  agent_commission_percent   Decimal  @db.Decimal(8, 2)
+  agency_commission_percent  Decimal  @db.Decimal(8, 2)
+  company_commission_percent Decimal  @db.Decimal(8, 2)
+  created_at                 DateTime @default(now()) @db.Timestamp(0)
+  updated_at                 DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  agency       agency       @relation(fields: [agency_id], references: [agency_id])
+  sku_category sku_category @relation(fields: [category_id], references: [category_id])
+
+  @@unique(fields: [agency_id, category_id], name: "default_agency_config")
+}
+
+model agent_earning_config {
+  id                         Int      @id @unique @default(autoincrement())
+  agent_id                   Int
+  agency_id                  Int
+  category_id                Int
+  agent_commission_percent   Decimal  @db.Decimal(8, 2)
+  agency_commission_percent  Decimal  @db.Decimal(8, 2)
+  company_commission_percent Decimal  @db.Decimal(8, 2)
+  created_at                 DateTime @default(now()) @db.Timestamp(0)
+  updated_at                 DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  agent        agent        @relation(fields: [agent_id], references: [agent_id])
+  sku_category sku_category @relation(fields: [category_id], references: [category_id])
+  agency       agency       @relation(fields: [agency_id], references: [agency_id])
+
+  @@unique(fields: [agent_id, category_id], name: "agent_earning_config_unique")
+}
+
+enum CREDIT_EVENT {
+  BOOKING_FEEDBACK_SUBMIT
+}
+
+model agent_earning_history {
+  id                     Int          @id @unique @default(autoincrement())
+  agent_id               Int
+  booking_id             Int
+  sku_id                 Int
+  agent_commission_inr   Decimal      @db.Decimal(8, 2)
+  agency_commission_inr  Decimal      @db.Decimal(8, 2)
+  company_commission_inr Decimal      @db.Decimal(8, 2)
+  credit_reason          CREDIT_EVENT
+  is_active              Boolean      @default(true)
+  created_at             DateTime     @default(now()) @db.Timestamp(0)
+  updated_at             DateTime     @default(now()) @updatedAt @db.Timestamp(0)
+
+  agent   agent         @relation(fields: [agent_id], references: [agent_id])
+  sku     sku           @relation(fields: [sku_id], references: [sku_id])
+  booking agent_booking @relation(fields: [booking_id], references: [booking_id])
+
+  @@unique(fields: [booking_id], name: "booking_earning_unique")
+}
+
+enum CALL_TYPE {
+  INBOUND
+  OUTBOUND
+}
+
+enum CALLER_ROLE {
+  SYSTEM
+  AGENT
+  USER
+}
+
+model telephony_provider {
+  telephony_provider_id Int      @id @default(autoincrement())
+  telephony_provider    String   @unique @db.VarChar(50)
+  created_at            DateTime @default(now()) @db.Timestamp(0)
+  updated_at            DateTime @default(now()) @updatedAt @db.Timestamp(0)
+}
+
+model events_wati {
+  id         Int      @id @unique @default(autoincrement())
+  data       Json
+  created_at DateTime @default(now()) @db.Timestamp(0)
+}
+
+model events_knowlarity {
+  id         Int      @id @unique @default(autoincrement())
+  data       Json
+  created_at DateTime @default(now()) @db.Timestamp(0)
+}
+
+model events_razorpay {
+  id         Int      @id @default(autoincrement())
+  data       Json
+  created_at DateTime @default(now()) @db.Timestamp(0)
+}
+
+model events {
+  id         Int      @id @default(autoincrement())
+  data       Json
+  created_at DateTime @default(now()) @db.Timestamp(0)
+}
+
+model user_kundli {
+  id                     Int       @id @unique @default(autoincrement())
+  user_id                Int       @unique
+  kundli_pdf_url         String?
+  sample_kundli_pdf_url  String?
+  kundli_pdf_buy_status  Boolean   @default(false)
+  kundli_upsell_eligible Boolean   @default(false)
+  user_kundli_sent_at    DateTime?
+  user_kundli_buy_at     DateTime?
+  user                   user      @relation(fields: [user_id], references: [user_id])
+
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamp(0)
+}
+
+model phone_call_rm {
+  call_id                     Int          @id @unique @default(autoincrement())
+  call_uuid                   String       @unique @default(uuid()) @db.Char(36)
+  batch_uuid                  String       @db.Char(36)
+  telephony_provider_id       Int          @default(0)
+  telephony_provider_call_id  String?      @db.VarChar(36)
+  agent_id                    Int
+  user_id                     Int?
+  initiated_by                CALLER_ROLE
+  agent_phone_number          String       @db.VarChar(20)
+  user_phone_number           String       @db.VarChar(20)
+  call_type                   CALL_TYPE
+  initiated_at                DateTime?    @db.Timestamp(0)
+  agent_called_at             DateTime?    @db.Timestamp(0)
+  agent_answered_at           DateTime?    @db.Timestamp(0)
+  user_called_at              DateTime?    @db.Timestamp(0)
+  user_answered_at            DateTime?    @db.Timestamp(0)
+  hangup_at                   DateTime?    @db.Timestamp(0)
+  hangup_cause                String?      @db.VarChar(50)
+  hangup_by                   CALLER_ROLE?
+  call_duration_actual        Int          @default(0)
+  call_recording_url          String?
+  is_error                    Boolean      @default(false)
+  is_ongoing                  Boolean      @default(true)
+  is_fulfilled                Boolean      @default(false)
+  telephony_provider_response Json?
+
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  @@unique(fields: [telephony_provider_id, telephony_provider_call_id], name: "call_id_3p_unique_rm")
+}
+
+model phone_call_master {
+  call_id                    Int               @id @unique @default(autoincrement())
+  telephony_provider_id      Int               @default(0)
+  telephony_provider_call_id String?           @db.VarChar(36)
+  call_type                  CALL_PAYMENT_TYPE
+
+  @@unique(fields: [telephony_provider_id, telephony_provider_call_id], name: "call_id_3p_unique_master")
+}
+
+enum CALL_PAYMENT_TYPE {
+  PAID
+  NON_PAID
+}
+
+model whatsapp_message {
+  id                  Int               @id @unique @default(autoincrement())
+  created_at          DateTime          @default(now()) @db.Timestamp(0)
+  updated_at          DateTime          @default(now()) @updatedAt @db.Timestamp(0)
+  message_direction   MESSAGE_DIRECTION
+  whatsapp_message_id String            @unique @db.VarChar(191)
+  wa_id               String            @db.VarChar(20)
+  user_id             Int
+  message_payload     Json?
+  sent_at             DateTime?         @db.Timestamp(0)
+  received_at         DateTime?         @db.Timestamp(0)
+  delivered_at        DateTime?         @db.Timestamp(0)
+  read_at             DateTime?         @db.Timestamp(0)
+  replied_at          DateTime?         @db.Timestamp(0)
+  template_id         String?
+  template_name       String?
+  user                user              @relation(fields: [user_id], references: [user_id])
+}
+
+enum SESSION_STATUS {
+  ACTIVE
+  INACTIVE
+}
+
+model whatsapp_session {
+  id                 Int            @id @unique @default(autoincrement())
+  created_at         DateTime       @default(now()) @db.Timestamp(0)
+  updated_at         DateTime       @default(now()) @updatedAt @db.Timestamp(0)
+  user_id            Int
+  phone_number       String         @unique @db.VarChar(20)
+  session_id         String         @unique
+  session_status     SESSION_STATUS
+  session_expires_at DateTime?
+  session_created_at DateTime?
+  session_updated_at DateTime?
+  user               user           @relation(fields: [user_id], references: [user_id])
+}
+
+model crm_reminder {
+  id                     Int      @id @unique @default(autoincrement())
+  created_at             DateTime @default(now()) @db.Timestamp(0)
+  updated_at             DateTime @default(now()) @updatedAt @db.Timestamp(0)
+  user_id                Int      @unique
+  upsell_reminder        Json
+  kundli_reminder        Json
+  feedback_reminder      Json
+  explorer_reminder_sent Boolean
+  aspirer_reminder_sent  Boolean
+  payer_reminder_sent    Boolean
+  user                   user     @relation(fields: [user_id], references: [user_id])
+}
+
+// model crm_reminder {
+//   user_uuid              String  @unique
+//   upsell_reminder        Json
+//   kundli_reminder        Json
+//   feedback_reminder      Json
+//   explorer_reminder_sent Boolean
+//   aspirer_reminder_sent  Boolean
+//   payer_reminder_sent    Boolean
+//   user                   user    @relation(fields: [user_uuid], references: [user_uuid])
+// }
+
+model external_api_metadata {
+  api_id         Int      @id @unique @default(autoincrement())
+  api_name       String   @db.VarChar(191)
+  common_headers Json?
+  base_url       String   @db.VarChar(191)
+  is_active      Boolean  @default(false)
+  ttl            Int      @default(2592000)
+  created_at     DateTime @default(now()) @db.Timestamp(0)
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamp(0)
+}
+
+model external_api_response_cache {
+  id                Int      @id @unique @default(autoincrement())
+  user_id           Int?
+  api_id            Int
+  cache_key         String   @db.Char(64)
+  request_metadata  Json?
+  response_metadata Json?
+  response_body     Json?
+  expires_at        DateTime @default(now()) @db.Timestamp(0)
+  created_at        DateTime @default(now()) @db.Timestamp(0)
+  updated_at        DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  user user? @relation(fields: [user_id], references: [user_id])
+
+  @@index([api_id], name: "cached_api_response__api_id")
+  @@index([api_id, cache_key], name: "cached_api_response__api_id_cache_key")
+}
